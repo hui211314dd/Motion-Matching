@@ -16,7 +16,7 @@ template<typename T>
 struct slice1d
 {
 	int size;
-	T*  data;
+	T* _restrict data;
 	
 	slice1d(int _size, T* _data) : size(_size), data(_data) {}
 	
@@ -31,7 +31,7 @@ template<typename T>
 struct slice2d
 {
 	int rows, cols;
-	T*  data;
+	T* _restrict data;
 	
 	slice2d(int _rows, int _cols, T* _data) : rows(_rows), cols(_cols), data(_data) {}
 
@@ -51,7 +51,7 @@ template<typename T>
 struct array1d
 {
 	int size;
-	T* data;
+	T*  data;
 	
 	array1d() : size(0), data(NULL) {}
 	array1d(int _size) : array1d() { resize(_size);  }

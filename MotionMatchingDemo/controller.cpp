@@ -44,6 +44,13 @@ static inline Vector3 to_Vector3(float x, float y, float z)
     return Ret;
 }
 
+
+// 绘制方向
+void draw_dir(const vec3 pos, const vec3 dir, const float lenth, Color color)
+{
+    DrawLine3D(to_Vector3(pos), to_Vector3(pos + normalize(dir) * lenth), color);
+}
+
 float GuiSliderBar(Rectangle bounds, const char *text, float value, float minValue, float maxValue, bool showValue);
 
 //--------------------------------------
@@ -225,6 +232,7 @@ void desired_gait_update(
         dt);
 }
 
+// 传入左摇杆输入信息，相机方位角以及当前simulation_rotation,还有各个方向的速度信息，返回计算后理论的desired_velocity
 vec3 desired_velocity_update(
     const vec3 gamepadstick_left,
     const float camera_azimuth,
@@ -250,6 +258,10 @@ vec3 desired_velocity_update(
     return quat_mul_vec3(simulation_rotation, local_desired_velocity);
 }
 
+// 当前是strafe模式：  右摇杆激活的话，返回右摇杆指向方向为水平旋转的quat
+//                     右摇杆没有激活的话，返回当前相机注视方向为水平旋转的quat
+// 当前不是strafe模式：左摇杆激活的话，返回目标速度方向为水平旋转的quat
+//                     都不是的话返回传入的desired_rotation
 quat desired_rotation_update(
     const quat desired_rotation,
     const vec3 gamepadstick_left,
@@ -669,6 +681,7 @@ void simulation_rotations_update(
         halflife, dt);
 }
 
+// 根据右摇杆的输入情况预测相机的方位角变化，结合左摇杆和预测的旋转信息，去预测future desired_velocities
 // Predict what the desired velocity will be in the 
 // future. Here we need to use the future trajectory 
 // rotation as well as predicted future camera 
@@ -737,6 +750,7 @@ void trajectory_positions_predict(
     }
 }
 
+// 通过对camera_azimuth的预测来进行desired_rotations的预测
 // Predict desired rotations given the estimated future 
 // camera rotation and other parameters
 void trajectory_desired_rotations_predict(
@@ -764,6 +778,8 @@ void trajectory_desired_rotations_predict(
     }
 }
 
+// 传入当前的rotation,desired_rotation, dt, halflife利用SpringDamper进行平滑,返回rotations和angular_velocities。
+// todo angular_velocities指的是当时的旋转角速度？
 void trajectory_rotations_predict(
     slice1d<quat> rotations, 
     slice1d<vec3> angular_velocities, 
@@ -779,10 +795,10 @@ void trajectory_rotations_predict(
     for (int i = 1; i < rotations.size; i++)
     {
         simulation_rotations_update(
-            rotations(i), 
-            angular_velocities(i), 
-            desired_rotations(i), 
-            halflife, 
+            rotations(i),  // in/out 
+            angular_velocities(i), // in/out 
+            desired_rotations(i), // in
+            halflife, // in
             i * dt);
     }
 }
@@ -1366,8 +1382,8 @@ int main(void)
     vec3 simulation_position;
     vec3 simulation_velocity;
     vec3 simulation_acceleration;
-    quat simulation_rotation;
-    vec3 simulation_angular_velocity;
+    quat simulation_rotation;           // Simulation Object当前的Rotation
+    vec3 simulation_angular_velocity;   // Simulation Object当前的angular_Velocity
     
     float simulation_velocity_halflife = 0.27f;
     float simulation_rotation_halflife = 0.27f;
@@ -1537,51 +1553,54 @@ int main(void)
         }
         
         // Predict Future Trajectory
-        
+        // 预测trajectory future 每个时间段 desired_rotations情况
         trajectory_desired_rotations_predict(
-          trajectory_desired_rotations,
-          trajectory_desired_velocities,
-          desired_rotation,
-          camera_azimuth,
-          gamepadstick_left,
-          gamepadstick_right,
-          desired_strafe,
+          trajectory_desired_rotations, // out
+          trajectory_desired_velocities, // in
+          desired_rotation, // in
+          camera_azimuth,   // in
+          gamepadstick_left,// in
+          gamepadstick_right,// in
+          desired_strafe,// in
           20.0f * dt);
         
+        // 对desired_rotations进行SpringDamper平滑
         trajectory_rotations_predict(
-            trajectory_rotations,
-            trajectory_angular_velocities,
-            simulation_rotation,
-            simulation_angular_velocity,
-            trajectory_desired_rotations,
-            simulation_rotation_halflife,
+            trajectory_rotations, // out
+            trajectory_angular_velocities, // out
+            simulation_rotation, // in
+            simulation_angular_velocity, // in
+            trajectory_desired_rotations, // in
+            simulation_rotation_halflife, // in
             20.0f * dt);
         
+        // 根据右摇杆的输入情况预测相机的方位角变化，结合左摇杆和预测的旋转信息，去预测future desired_velocities
         trajectory_desired_velocities_predict(
-          trajectory_desired_velocities,
-          trajectory_rotations,
-          desired_velocity,
-          camera_azimuth,
-          gamepadstick_left,
-          gamepadstick_right,
-          desired_strafe,
-          simulation_fwrd_speed,
-          simulation_side_speed,
-          simulation_back_speed,
+          trajectory_desired_velocities, // out
+          trajectory_rotations, // in
+          desired_velocity, // in
+          camera_azimuth, // in
+          gamepadstick_left, // in
+          gamepadstick_right, // in
+          desired_strafe, // in
+          simulation_fwrd_speed, // in
+          simulation_side_speed, // in
+          simulation_back_speed, // in
           20.0f * dt);
         
+        //传入目前的位置，速度，加速度，目标速度信息以及halflife，dt和obstacles信息，通过SpringDamper去预测Future positions, velocities, accelerations 等信息
         trajectory_positions_predict(
-            trajectory_positions,
-            trajectory_velocities,
-            trajectory_accelerations,
-            simulation_position,
-            simulation_velocity,
-            simulation_acceleration,
-            trajectory_desired_velocities,
-            simulation_velocity_halflife,
-            20.0f * dt,
-            obstacles_positions,
-            obstacles_scales);
+            trajectory_positions, // out
+            trajectory_velocities, // out
+            trajectory_accelerations, // out
+            simulation_position, // in
+            simulation_velocity, // in
+            simulation_acceleration, // in
+            trajectory_desired_velocities, // in
+            simulation_velocity_halflife, // in
+            20.0f * dt, // in
+            obstacles_positions, // in
+            obstacles_scales); // in
            
         // Make query vector for search.
         // In theory this only needs to be done when a search is 

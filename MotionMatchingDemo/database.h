@@ -555,8 +555,8 @@ void database_build_matching_features(
 // query distance to the axis aligned bounding boxes used 
 // for the acceleration structure.
 void motion_matching_search(
-    int&  best_index, 
-    float&  best_cost, 
+    int&   _restrict best_index,
+    float& _restrict best_cost,
     const slice1d<int> range_starts,
     const slice1d<int> range_stops,
     const slice2d<float> features,
