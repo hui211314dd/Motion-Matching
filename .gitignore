@@ -1,0 +1,8 @@
+MotionMatchingDemo/obj/
+*.vcxproj
+*.filters
+*.user
+.vs/
+bin/
+build/
+*.sln
