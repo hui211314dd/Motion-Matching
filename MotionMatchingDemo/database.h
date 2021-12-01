@@ -20,19 +20,78 @@ enum
 
 struct database
 {
+    /* 
+       数据来源于database.bin
+       存储骨骼相对于父骨骼的位置信息。
+       rows表示所有动画帧数量，cols表示骨骼的数量
+
+                  Bone1    Bone2    Bone3   ... BoneCols
+       Frame1     {1,2,3}  {1,2,3}  {1,2,3} ... ...
+       Frame2     {1,2,3}  {1,2,3}  {1,2,3} ... ...
+       Frame3     {1,2,3}  {1,2,3}  {1,2,3} ... ...
+       ... 
+       FrameRows  {1,2,3}  {1,2,3}  {1,2,3} ... ...
+    */
     array2d<vec3> bone_positions;
+     
+    /*
+       数据来源于database.bin
+    */ 
     array2d<vec3> bone_velocities;
+
+    /* 
+       数据来源于database.bin
+       存储骨骼相对于父骨骼的旋转信息。
+       rows表示所有动画帧数量，cols表示骨骼的数量
+
+                  Bone1      Bone2     Bone3     ... BoneCols
+       Frame1     {w,x,y,z}  {w,x,y,z} {w,x,y,z} ... ...
+       Frame2     {w,x,y,z}  {w,x,y,z} {w,x,y,z} ... ...
+       Frame3     {w,x,y,z}  {w,x,y,z} {w,x,y,z} ... ...
+       ... 
+       FrameRows  {w,x,y,z}  {w,x,y,z} {w,x,y,z} ... ...
+    */
     array2d<quat> bone_rotations;
+    
+    /*
+        数据来源于database.bin
+    */
     array2d<vec3> bone_angular_velocities;
+
+    /*
+        数据来源于database.bin
+        存储父骨骼的Index,RootBone的父骨骼为-1, BoneIndex参考character.h中的enum Bones.
+    */
     array1d<int> bone_parents;
     
+    /*
+        数据来源于database.bin
+    */
     array1d<int> range_starts;
+    /*
+        数据来源于database.bin
+    */
     array1d<int> range_stops;
     
+    /*
+                Left Foot Position | Right Foot Position | Left Foot Velocity | Right Foot Velocity | Hip Velocity | Trajectory Positions 2D | Trajectory Directions 2D
+       Frame1    {标准后的3个float}    {标准后的3个float}    {标准后的3个float}     {标准后的3个float} {标准后的3个float}    {标准后的6个float}        {标准后的6个float} 
+       Frame2    {标准后的3个float}    {标准后的3个float}    {标准后的3个float}     {标准后的3个float} {标准后的3个float}    {标准后的6个float}        {标准后的6个float} 
+       Frame3    {标准后的3个float}    {标准后的3个float}    {标准后的3个float}     {标准后的3个float} {标准后的3个float}    {标准后的6个float}        {标准后的6个float} 
+       ... 
+       FrameRows {标准后的3个float}    {标准后的3个float}    {标准后的3个float}     {标准后的3个float} {标准后的3个float}    {标准后的6个float}        {标准后的6个float} 
+    */
     array2d<float> features;
+
+    /* 数组长度为Features Number, 内容是所有该Feature的平均值 */
     array1d<float> features_offset;
+
+    /* 数组长度为Features Number, 内容是标准差与weight的差，标准化和逆操作使用 */
     array1d<float> features_scale;
     
+    /*
+        数据来源于database.bin
+    */
     array2d<bool> contact_states;
     
     array2d<float> bound_sm_min;
@@ -85,6 +144,14 @@ int database_trajectory_index_clamp(database& db, int frame, int offset)
 
 //--------------------------------------
 
+/* 使用z-score数据标准化，方便在同一纬度计算Cost来比较
+   返回结果符合正态分布，平均值为0，标准差为1
+   Param:
+        features[in/out]
+        features_offset[out]
+        features_scale[out]
+        others [in]
+*/
 void normalize_feature(
     slice2d<float> features,
     slice1d<float> features_offset,
@@ -95,6 +162,7 @@ void normalize_feature(
 {
 	// First compute what is essentially the mean 
 	// value for each feature dimension
+    // 计算平均值
     for (int j = 0; j < size; j++)
     {
         features_offset(offset + j) = 0.0f;    
@@ -104,11 +172,13 @@ void normalize_feature(
     {
         for (int j = 0; j < size; j++)
         {
+            // 刚开始以为写的有bug呢，后来一想，a+b+c+d/n = a/n + b/n + c/n + d/n，哈哈, 代码简洁但不一定效率高
             features_offset(offset + j) += features(i, offset + j) / features.rows;
         }
     }
     
 	// Now compute the variance of each feature dimension
+    // 计算方差
     array1d<float> vars(size);
     vars.zero();
     
@@ -122,6 +192,7 @@ void normalize_feature(
     
 	// We compute the overall std of the feature as the average
 	// std across all dimensions
+    // 计算标准差
     float std = 0.0f;
     for (int j = 0; j < size; j++)
     {
@@ -139,6 +210,7 @@ void normalize_feature(
     }
     
 	// Using the offset and scale we can then normalize the features
+    // z-score标准化
     for (int i = 0; i < features.rows; i++)
     {
         for (int j = 0; j < size; j++)
@@ -148,6 +220,12 @@ void normalize_feature(
     }
 }
 
+/* normalize_feature逆操作，返回源数据
+   Param:
+        features[in/out]
+        features_offset[in]
+        features_scale[in]
+*/
 void denormalize_features(
     slice1d<float> features,
     const slice1d<float> features_offset,
@@ -161,7 +239,14 @@ void denormalize_features(
 
 //--------------------------------------
 
-// Here I am using a simple recursive version of forward kinematics
+/*
+   Here I am using a simple recursive version of forward kinematics
+   使用简单的递归计算bone相对于root-bone的位置和旋转信息
+   Param:
+       bone_Position[in/out]
+       bone_rotation[in/out]
+       others [in]
+*/
 void forward_kinematics(
     vec3& bone_position,
     quat& bone_rotation,
@@ -194,6 +279,16 @@ void forward_kinematics(
 }
 
 // Forward kinematics but also compute the velocities
+/*
+   与forward_kinematics类似，通过递归计算bone的位置，旋转，速度和todo角速度?信息 
+   todo 骨骼速度和角速度计算原理？
+   Param:
+        bone_position [in/out]
+        bone_velocity [in/out]
+        bone_rotation [in/out]
+        bone_angular_velocity [in/out] 角速度？
+        others [in]
+*/
 void forward_kinematics_velocity(
     vec3& bone_position,
     vec3& bone_velocity,
@@ -367,6 +462,13 @@ void forward_kinematics_velocity_partial(
 //--------------------------------------
 
 // Compute a feature for the position of a bone relative to the simulation/root bone
+/*
+   计算bone相对于root-bone的位置，再进行标准化处理存入db.features中，offset累加，供后面传递使用
+   Param:
+        db [in/out]
+        offset [in/out]
+        others [in]
+*/
 void compute_bone_position_feature(database& db, int& offset, int bone, float weight = 1.0f)
 {
     for (int i = 0; i < db.nframes(); i++)
@@ -382,6 +484,7 @@ void compute_bone_position_feature(database& db, int& offset, int bone, float we
             db.bone_parents,
             bone);
         
+        // 计算如果root-bone 的rotations，positions全部重置为0后的bone-position位置
         bone_position = quat_mul_vec3(quat_inv(db.bone_rotations(i, 0)), bone_position - db.bone_positions(i, 0));
         
         db.features(i, offset + 0) = bone_position.x;
@@ -395,6 +498,13 @@ void compute_bone_position_feature(database& db, int& offset, int bone, float we
 }
 
 // Similar but for a bone's velocity
+/*
+   计算bone在root-bone空间下的速度，再进行标准化处理存入db.features中，offset累加，供后面传递使用
+   Param:
+        db [in/out]
+        offset [in/out]
+        others [in]
+*/
 void compute_bone_velocity_feature(database& db, int& offset, int bone, float weight = 1.0f)
 {
     for (int i = 0; i < db.nframes(); i++)
