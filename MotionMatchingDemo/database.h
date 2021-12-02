@@ -94,6 +94,18 @@ struct database
     */
     array2d<bool> contact_states;
     
+    /* 
+        AABB加速查询使用
+        n = Frames+Size-1/Size
+        存储的内容为管辖范围(比如每16行一组或者每64行一组)内的最小或者最大值
+
+            Left Foot Position | Right Foot Position | Left Foot Velocity | Right Foot Velocity | Hip Velocity | Trajectory Positions 2D | Trajectory Directions 2D
+       1         {3个float}           {3个float}           {3个float}            {3个float}         {3个float}          {6个float}                {6个float} 
+       2         {3个float}           {3个float}           {3个float}            {3个float}         {3个float}          {6个float}                {6个float} 
+       3         {3个float}           {3个float}           {3个float}            {3个float}         {3个float}          {6个float}                {6个float} 
+       ...      
+       n         {3个float}           {3个float}           {3个float}            {3个float}         {3个float}          {6个float}                {6个float} 
+    */
     array2d<float> bound_sm_min;
     array2d<float> bound_sm_max;
     array2d<float> bound_lr_min;
@@ -128,6 +140,8 @@ void database_load(database& db, const char* filename)
 // When we add an offset to a frame in the database there is a chance
 // it will go out of the relevant range so here we can clamp it to 
 // the last frame of that range.
+
+// todo range_starts range_stops 与 Frames数量的关系？
 int database_trajectory_index_clamp(database& db, int frame, int offset)
 {
     for (int i = 0; i < db.nranges(); i++)
@@ -539,6 +553,14 @@ void compute_bone_velocity_feature(database& db, int& offset, int bone, float we
 }
 
 // Compute the trajectory at 20, 40, and 60 frames in the future
+/* 
+    计算Future 20 40 60 Frames的root-bone位置信息(相对于当前帧的root-bone)作为Trajectory Position，再进行标准化处理存入db.features中，offset累加，供后面传递使用
+    值得值得注意的是，没有保存垂直位置坐标，因为都是平面行走，没有保存的必要 
+    Param:
+        db [in/out]
+        offset [in/out]
+        others [in]
+*/
 void compute_trajectory_position_feature(database& db, int& offset, float weight = 1.0f)
 {
     for (int i = 0; i < db.nframes(); i++)
@@ -565,6 +587,14 @@ void compute_trajectory_position_feature(database& db, int& offset, float weight
 }
 
 // Same for direction
+/* 
+    计算Future 20 40 60 Frames的root-bone方向信息(相对于当前帧的root-bone)作为Trajectory Position，再进行标准化处理存入db.features中，offset累加，供后面传递使用
+    值得值得注意的是，没有保存垂直位置坐标，因为都是平面行走，没有保存的必要 
+    Param:
+        db [in/out]
+        offset [in/out]
+        others [in]
+*/
 void compute_trajectory_direction_feature(database& db, int& offset, float weight = 1.0f)
 {
     for (int i = 0; i < db.nframes(); i++)
@@ -624,6 +654,9 @@ void database_build_bounds(database& db)
 }
 
 // Build all motion matching features and acceleration structure
+/*
+   从database的数据中提取Feature并且标准化处理存入db.features 中，并且构建AABB加速结构
+*/
 void database_build_matching_features(
     database& db,
     const float feature_weight_foot_position,
