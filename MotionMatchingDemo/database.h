@@ -66,6 +66,13 @@ struct database
     
     /*
         数据来源于database.bin
+        printf("range_start:%d,range_end:%d, frames:%d\n", range_starts(r), range_stops(r), features.rows);
+        range_start:0,    range_end:281,   frames:53500
+        range_start:281,  range_end:562,   frames:53500
+        range_start:562,  range_end:13153, frames:53500
+        range_start:13153,range_end:25744, frames:53500
+        range_start:25744,range_end:39622, frames:53500
+        range_start:39622,range_end:53500, frames:53500
     */
     array1d<int> range_starts;
     /*
@@ -827,6 +834,16 @@ void motion_matching_search(
 }
 
 // Search database
+/*
+MotionMatching的核心，查询相似帧并且返回
+best_index [in/out]    : 一般情况下传入当前frame_index即可，假如当前frame已经是末尾帧了，传入-1即可
+best_cost [in/out]     : 传入FLT_MAX即可
+db [in]
+query [in]             : 当前Pose和Trajectory的未标准化数据
+transition_cost [in]   : Pose发生改变的固定消耗
+ignore_range_end [in]  : range末尾忽略的帧数，比如range范围为1-50，该参数20表示只考虑1-30的帧
+ignore_surrounding [in]: 忽略附近的帧数，比如当前帧使用的是50，该参数20表示30-70之间的帧都不考虑，这种方式能保证返回的帧肯定不是当前帧
+*/
 void database_search(
     int& best_index, 
     float& best_cost, 

@@ -540,6 +540,7 @@ void inertialize_pose_update(
 
 // Copy a part of a feature vector from the 
 // matching database into the query feature vector
+// 将未经标准化的features数据拷贝到query中
 void query_copy_denormalized_feature(
     slice1d<float> query, 
     int& offset, 
@@ -1610,11 +1611,14 @@ int main(void)
         
         // Compute the features of the query vector
         int offset = 0;
+        // 这里有意思的是，feature 骨骼速度和位置信息直接使用的当前frame_Index的数据，仔细想想，也是 :)
         query_copy_denormalized_feature(query, offset, 3, db.features(frame_index), db.features_offset, db.features_scale); // Left Foot Position
         query_copy_denormalized_feature(query, offset, 3, db.features(frame_index), db.features_offset, db.features_scale); // Right Foot Position
         query_copy_denormalized_feature(query, offset, 3, db.features(frame_index), db.features_offset, db.features_scale); // Left Foot Velocity
         query_copy_denormalized_feature(query, offset, 3, db.features(frame_index), db.features_offset, db.features_scale); // Right Foot Velocity
         query_copy_denormalized_feature(query, offset, 3, db.features(frame_index), db.features_offset, db.features_scale); // Hip Velocity
+        // 需要注意的是，相对于Character Entity的偏移计算出来的
+        //这样有个好处，就是能够保证Character Entity找到的动画会一直向Simulation Object的目标方向上靠拢，不至于偏离越来越大。
         query_compute_trajectory_position_feature(query, offset, bone_positions(0), bone_rotations(0), trajectory_positions);
         query_compute_trajectory_direction_feature(query, offset, bone_rotations(0), trajectory_rotations);
         

@@ -69,6 +69,13 @@ static inline quat quat_mul_inv(quat q, quat p)
   return quat_mul(q, quat_inv(p));
 }
 
+/*
+   quat_mul_vec3: 对应FQuat::RotatorVector，即按照FQuat旋转向量，举例：
+       global_space_dir = quat_mul_vec3(actor_rotation, actor_space_dir)
+
+   quat_inv_mul_vec3: 同理，逆操作就是 
+       actor_space_dir = quat_inv_mul_vec3(actor_rotation, global_space_dir)
+*/
 static inline vec3 quat_mul_vec3(quat q, vec3 v)
 {
     vec3 t = 2.0f * cross(vec3(q.x, q.y, q.z), v);
