@@ -704,6 +704,30 @@ void database_build_matching_features(
 // against the query feature vector, first checking the 
 // query distance to the axis aligned bounding boxes used 
 // for the acceleration structure.
+/*
+MotionMatching的查询实现部分
+best_index [in/out]    : 一般情况下传入当前frame_index即可，假如当前frame已经是末尾帧了，传入-1即可
+best_cost [in/out]     : 传入FLT_MAX即可
+range_starts [in]      : 动画帧遍历使用，之所以没有直接使用features.rows是因为动画由几个动画文件组成，而并非一个大的动画文件，range_starts和range_stops提供了每个动画文件的范围
+range_stops [in]       : 动画帧遍历使用，同上
+features [in]          :
+features_offset [in]   : 本函数没有用到
+features_scale [in]    : 本函数没有用到
+bound_sm_min [in]      : 加速结构，可快速剔除不符合条件的帧，加速查询，这里的算法也特别有意思：
+
+curr_cost += squaref(query_normalized(j) - clampf(query_normalized(j), 
+                    bound_lr_min(i_lr, j), bound_lr_max(i_lr, j)));
+
+可以看到，query_normalized(j)仅仅和clampf上的自己做了一个比较，如果连这种方式计算出的cost比当前best_cost还大的话，那么bound里面的任何一个feature都比当前的都要大，就没有比较的必要了
+
+bound_sm_max [in]      : 同上
+bound_lr_min [in]      : 同上
+bound_lr_max [in]      : 同上
+query_normalized [in]  : 当前Pose和Trajectory的标准化数据
+transition_cost [in]   : Pose发生改变的固定消耗
+ignore_range_end [in]  : range末尾忽略的帧数，比如range范围为1-50，该参数20表示只考虑1-30的帧
+ignore_surrounding [in]: 忽略附近的帧数，比如当前帧使用的是50，该参数20表示30-70之间的帧都不考虑，这种方式能保证返回的帧肯定不是当前帧
+*/
 void motion_matching_search(
     int&   _restrict best_index,
     float& _restrict best_cost,

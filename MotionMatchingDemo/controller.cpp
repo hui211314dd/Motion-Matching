@@ -1004,6 +1004,7 @@ void draw_axis(const vec3 pos, const quat rot, const float scale = 1.0f)
     DrawLine3D(to_Vector3(pos), to_Vector3(axis2), BLUE);
 }
 
+// draw_features包括draw features中的左右脚Pose信息(位置，朝向)，以及未来三个future trajectory的信息(位置，朝向)
 void draw_features(const slice1d<float> features, const vec3 pos, const quat rot, const Color color)
 {
     vec3 lfoot_pos = quat_mul_vec3(rot, vec3(features( 0), features( 1), features( 2))) + pos;
@@ -1308,10 +1309,10 @@ int main(void)
     int frame_index = db.range_starts(0);
     float inertialize_blending_halflife = 0.1f;
 
-    array1d<vec3> bone_positions = db.bone_positions(frame_index);
-    array1d<vec3> bone_velocities = db.bone_velocities(frame_index);
-    array1d<quat> bone_rotations = db.bone_rotations(frame_index);
-    array1d<vec3> bone_angular_velocities = db.bone_angular_velocities(frame_index);
+    array1d<vec3> bone_positions = db.bone_positions(frame_index);                    //当前Character Entity的骨骼位置信息，bone_position(0)即Entity的位置信息
+    array1d<vec3> bone_velocities = db.bone_velocities(frame_index);                  // 同上，Entity的骨骼速度信息
+    array1d<quat> bone_rotations = db.bone_rotations(frame_index);                    // 同上，Entity的骨骼旋转信息
+    array1d<vec3> bone_angular_velocities = db.bone_angular_velocities(frame_index);  // 同上，Entity的骨骼旋转速度信息
     
     array1d<vec3> bone_offset_positions(db.nbones());
     array1d<vec3> bone_offset_velocities(db.nbones());
@@ -1380,9 +1381,9 @@ int main(void)
     float desired_gait = 0.0f;
     float desired_gait_velocity = 0.0f;
     
-    vec3 simulation_position;
-    vec3 simulation_velocity;
-    vec3 simulation_acceleration;
+    vec3 simulation_position;           // Simulation Object当前的位置
+    vec3 simulation_velocity;           // Simulation Object当前的速度
+    vec3 simulation_acceleration;       // Simulation Object当前的加速度
     quat simulation_rotation;           // Simulation Object当前的Rotation
     vec3 simulation_angular_velocity;   // Simulation Object当前的angular_Velocity
     
