@@ -1179,6 +1179,7 @@ quat adjust_character_rotation_by_velocity(
 
 //--------------------------------------
 
+// 将character_position位置约束到以simulation_position为中心，max_distance为半径的园内，将修正后的位置返回
 vec3 clamp_character_position(
     const vec3 character_position,
     const vec3 simulation_position,
@@ -1198,6 +1199,7 @@ vec3 clamp_character_position(
     }
 }
   
+// 同上，只不过约束的是旋转，约束最大角度为max_angle
 quat clamp_character_rotation(
     const quat character_rotation,
     const quat simulation_rotation,

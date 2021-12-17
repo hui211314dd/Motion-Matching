@@ -159,6 +159,15 @@ static inline void decay_spring_damper_implicit(
 
 //--------------------------------------
 
+/*
+目标发生改变导致offset数据需要重新计算
+off_x [in/out]: 位置offset数据，intertialize使用，一般不会手动修改
+off_v [in/out]: 速度offset数据，intertialize使用，一般不会手动修改
+src_x [in]: 原来的goat位置
+src_v [in]: 原来的goat速度
+dst_x [in]: 现在的goat位置
+dst_v [in]: 现在的goat速度
+*/
 static inline void inertialize_transition(
     vec3& off_x, 
 	vec3& off_v, 
@@ -171,6 +180,15 @@ static inline void inertialize_transition(
     off_v = (src_v + off_v) - dst_v;
 }
 
+/*
+out_x [out]: 返回计算好的位置
+out_v [out]: 返回计算好的速度
+off_x [in/out]: 更新位置offset
+off_v [in/out]: 更新速度offset
+in_x [in]: 传入现在goat位置
+in_v [in]: 传入现在goat速度
+other [in]
+*/
 static inline void inertialize_update(
     vec3& out_x, 
 	vec3& out_v,
