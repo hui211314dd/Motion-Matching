@@ -22,7 +22,7 @@ struct database
 {
     /* 
        数据来源于database.bin
-       存储骨骼相对于父骨骼的位置信息。
+       存储骨骼相对于父骨骼的位置信息。切记这里“不要”理解成数据都经过了compute_bone_position_feature的处理，这里的数据都是原生的动画数据帧
        rows表示所有动画帧数量，cols表示骨骼的数量
 
                   Bone1    Bone2    Bone3   ... BoneCols
@@ -36,6 +36,7 @@ struct database
      
     /*
        数据来源于database.bin
+       结构同上
     */ 
     array2d<vec3> bone_velocities;
 

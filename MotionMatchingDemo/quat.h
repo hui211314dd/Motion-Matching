@@ -71,10 +71,14 @@ static inline quat quat_mul_inv(quat q, quat p)
 
 /*
    quat_mul_vec3: 对应FQuat::RotatorVector，即按照FQuat旋转向量，举例：
-       global_space_dir = quat_mul_vec3(actor_rotation, actor_space_dir)
+       parent_actorA_space_dir = quat_mul_vec3(actorA_rotation, actorA_space_dir)
+
+    actorA_rotation         : 表示actorA在"父空间/父坐标系"下的Rotation
+    actorA_space_dir        : 表示在actorA“本空间/自己坐标系”下的“方向”向量，不要理解成位置坐标
+    parent_actorA_space_dir ：表示方向向量在“actorA父空间”下的指向，本质属于坐标系转换, 从actorA坐标系下转换到actorA父坐标系下
 
    quat_inv_mul_vec3: 同理，逆操作就是 
-       actor_space_dir = quat_inv_mul_vec3(actor_rotation, global_space_dir)
+       actorA_space_dir = quat_inv_mul_vec3(actorA_rotation, parent_actorA_space_dir)
 */
 static inline vec3 quat_mul_vec3(quat q, vec3 v)
 {
