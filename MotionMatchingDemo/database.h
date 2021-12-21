@@ -631,6 +631,34 @@ void compute_trajectory_direction_feature(database& db, int& offset, float weigh
 // Build the Motion Matching search acceleration structure. Here we
 // just use axis aligned bounding boxes regularly spaced at BOUND_SM_SIZE
 // and BOUND_LR_SIZE frames
+/*
+Learned Motion Matching paper中关于加速结构的介绍
+
+Rather than a KD-Tree or clustering-based approach we use a simple
+axis-aligned bounding-box (AABB) based method to accelerate the
+nearest neighbor search. We fit axis-aligned bounding boxes to
+groups of 16 and 64 frames consecutively in X (see Fig 15 for a
+visual description).
+For each AABB we find the distance from the query point to the
+nearest point inside the AABB. If this distance is larger than the
+smallest distance so far then no point inside the AABB will have
+a smaller distance than our current best, and therefore there is no
+need to check inside.
+We found that axis-aligned bounding boxes had a number of
+interesting advantages for this task. Firstly, as we iterate over the
+database in order, we have excellent cache performance and avoid
+the random access that can occur using structures such as KD-Trees.
+Secondly, the squared distance to an AABB can be computed as a
+sum of the squared distance along each dimension individually. This
+allows for an essential form of early-out in the search, as the accumulated
+ distance to an AABB along just a few dimensions will often
+quickly exceed the distance to the best match found so far. Finally,
+axis-aligned bounding boxes are simple to use and require a minimal
+amount of memory overhead. In our experiments we found two levels 
+of hierarchy with the sizes described above enough to greatly
+accelerate the search. To accelerate training as well as runtime we
+implement this same algorithm in both C++ and Cython[Behnelet al. 2011].
+*/
 void database_build_bounds(database& db)
 {
     int nbound_sm = ((db.nframes() + BOUND_SM_SIZE - 1) / BOUND_SM_SIZE);
