@@ -305,6 +305,13 @@ quat desired_rotation_update(
 
 //--------------------------------------
 
+/* 
+   前言：
+   整个工程里我感觉最难理解的应该就是inertialization的部分了，究其原因，是因为我对于SpringDamper以及延伸的Inertialization理解不到位，
+   对于Velocity，Offset以及transition_*系列变量理解模糊，导致整体理解比较困难 >.< 虽然现在先大致说明下原理，等我把Spring的文章理解透后
+   这里的应该会更容易掌握了~
+*/
+
 // Moving the root is a little bit difficult when we have the
 // inertializer set up in the way we do. Essentially we need
 // to also make sure to adjust all of the locations where 
@@ -411,6 +418,15 @@ void inertialize_pose_transition(
     
     // Transition inertializers recording the offsets for 
     // the root joint
+    /*
+        Hi, Daniel, Is it assumed that the dt is equal to the animation data fps (1/60)  like the code below?
+        Because I found The vector value of bone_offset_positions(0) is always (0.f, 0.f, 0.f) >_<
+
+        Daniel Holden: 
+        Yes this will always be zero because when we transition the root position from one clip to another
+        we transform the data such that the src and dst root positions and rotations are at the same location
+        (their velocities however may differ)
+    */
     inertialize_transition(
         bone_offset_positions(0),
         bone_offset_velocities(0),
@@ -1179,7 +1195,7 @@ quat adjust_character_rotation_by_velocity(
 
 //--------------------------------------
 
-// 将character_position位置约束到以simulation_position为中心，max_distance为半径的园内，将修正后的位置返回
+// 将character_position位置约束到以simulation_position为中心，max_distance为半径的圆内，将修正后的位置返回
 vec3 clamp_character_position(
     const vec3 character_position,
     const vec3 simulation_position,
@@ -1316,17 +1332,43 @@ int main(void)
     array1d<quat> bone_rotations = db.bone_rotations(frame_index);                    // 同上，Entity的骨骼旋转信息
     array1d<vec3> bone_angular_velocities = db.bone_angular_velocities(frame_index);  // 同上，Entity的骨骼旋转速度信息
     
+    // Inertializer使用的数据，如何使用其实可以参考Spring提供的inertialization demo工程
     array1d<vec3> bone_offset_positions(db.nbones());
     array1d<vec3> bone_offset_velocities(db.nbones());
     array1d<quat> bone_offset_rotations(db.nbones());
     array1d<vec3> bone_offset_angular_velocities(db.nbones());
-    
+
     array1d<vec3> global_bone_positions(db.nbones());
     array1d<vec3> global_bone_velocities(db.nbones());
     array1d<quat> global_bone_rotations(db.nbones());
     array1d<vec3> global_bone_angular_velocities(db.nbones());
     array1d<bool> global_bone_computed(db.nbones());
     
+    /* 这四个变量应该算是比较难理解的，刚开始看的时候一脸懵逼，百思不得其解，后来发现
+    database.bone_positions的数据都是动画的原生数据帧，并没有经过类似
+    compute_bone_position_feature的处理，就豁然开朗了~
+
+    假设我们在世界坐标WorldTransformA点开始播放动画帧数据db.frame [20, 30]的数据，时间从0开始
+    t = 0的时候 
+                我们设置transition_src_position, transition_src_rotation等于db.frame(20)的数据
+                我们设置transition_dst_position，transition_dst_rotation等于WorldTransformA
+                相对于20帧时动画数据的位置和朝向(角色在动画空间下)和世界坐标WorldTransformA对齐了
+    t = 1帧（1/60s）的时候
+                拿到db.frame(21)的动画数据cur_root_positon, cur_root_rotation,通过
+                world_space_position = quat_mul_vec3(transition_dst_rotation, 
+                                       quat_inv_mul_vec3(transition_src_rotation, 
+                                       cur_root_positon - transition_src_position)) + 
+                                       transition_dst_position
+                可以算出21帧应该在世界坐标的位置，如果不理解，多看下quat_mul_vec3的注释就知道了
+    ...
+    后面同理,如果没有切动画或者执行过inertialize_root_adjust，这四个值始终不用改变
+
+    值得注意的是inertialize_root_adjust，因为对位置强行进行了改变，那么可以把改变的Offset应用到transition_src_position
+    和transition_dst_position上(Offset属于世界坐标下，应用到transition_src_position时需要转换下坐标系)，
+    这样继续取db.frame(t)的数据在计算上仍然可以保持不变
+
+    Rotation处理类似
+    */    
     vec3 transition_src_position;
     quat transition_src_rotation;
     vec3 transition_dst_position;
