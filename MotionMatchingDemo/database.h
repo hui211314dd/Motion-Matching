@@ -36,7 +36,24 @@ struct database
      
     /*
        数据来源于database.bin
-       结构同上
+       骨骼速度，刚开始感觉这个速度很好理解，就是骨骼在父空间的速度变化呗，真的是这样吗？自己想想，影响骨骼速度的有哪些？
+       1. 父骨骼`位移`产生的`速度`，  即使本骨骼不发生任何位移和旋转，由于父骨骼本身有速度，导致子骨骼在爷空间下也有相同方向的速度
+       2. 父骨骼`旋转`产生的`角速度`，即使本骨骼不发生任何位移和旋转，由于父骨骼在旋转，导致子骨骼在爷空间下产生了位移变化
+       3. 本骨骼在父空间下位移，父骨骼没有位移以及旋转，本骨骼在父空间下位移产生速度，比如Root, Hips等
+       
+       bone_velocities 表示的就是本骨骼在父空间下位移产生的速度(上面的3 todo generate_database.py看完后确认下？)，大部分骨骼的值为0，
+       因为驱动动画的主要方式还是旋转，当然了，Root和Hips大部分情况下有值。如果这里理解对了，forward_kinematics_velocity 也就好理解了
+
+       bone_velocity = 
+            parent_velocity + 
+            quat_mul_vec3(parent_rotation, bone_velocities(bone)) + 
+            cross(parent_angular_velocity, quat_mul_vec3(parent_rotation, bone_positions(bone)));
+
+        关于最后这个cross使用的是物理公式 线速度v = w*r w为角速度 r为半径矢量
+
+        角速度是矢量。按右手螺旋定则，大拇指方向为ω方向.当质点作逆时针旋转时，ω向上；作顺时针旋转时，ω向下
+        设线速度为v，取圆心为原点，设位矢（位置矢量）为r，则
+        v=ω×r
     */ 
     array2d<vec3> bone_velocities;
 
@@ -56,6 +73,7 @@ struct database
     
     /*
         数据来源于database.bin
+        注意这里是角速度，而不是线速度！
     */
     array2d<vec3> bone_angular_velocities;
 
@@ -302,13 +320,14 @@ void forward_kinematics(
 
 // Forward kinematics but also compute the velocities
 /*
-   与forward_kinematics类似，通过递归计算bone的位置，旋转，速度和todo角速度?信息 
-   todo 骨骼速度和角速度计算原理？
+   与forward_kinematics类似，通过递归计算相对于root-bone下bone的位置，旋转，速度和旋转角速度
+   理解的话，可以参考上面关于 bone_velocities的解释
+   
    Param:
         bone_position [in/out]
         bone_velocity [in/out]
         bone_rotation [in/out]
-        bone_angular_velocity [in/out] 角速度？
+        bone_angular_velocity [in/out]
         others [in]
 */
 void forward_kinematics_velocity(
