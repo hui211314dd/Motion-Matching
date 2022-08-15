@@ -126,6 +126,7 @@ enum
     GAMEPAD_STICK_RIGHT,
 };
 
+// 返回的方向向量是LocalSpace
 vec3 gamepad_get_stick(int stick, const float deadzone = 0.2f)
 {
     float gamepadx = GetGamepadAxisMovement(GAMEPAD_PLAYER, stick == GAMEPAD_STICK_LEFT ? GAMEPAD_AXIS_LEFT_X : GAMEPAD_AXIS_RIGHT_X);
@@ -262,6 +263,7 @@ vec3 desired_velocity_update(
 //                     右摇杆没有激活的话，返回当前相机注视方向为水平旋转的quat
 // 当前不是strafe模式：左摇杆激活的话，返回目标速度方向为水平旋转的quat
 //                     都不是的话返回传入的desired_rotation
+// 返回的rotation基于世界坐标系
 quat desired_rotation_update(
     const quat desired_rotation,
     const vec3 gamepadstick_left,
@@ -780,6 +782,13 @@ void trajectory_desired_rotations_predict(
   const bool desired_strafe,
   const float dt)
 {
+    // 这一段代码很有意思，desired_rotation是通过方位角左右摇杆情况预测出的目标旋转，所以按道理来讲应该是未来某个时间点的targetRotation应该为desired_rotation，
+    // 但这里给desired_rotations[0]赋值为desired_rotation,并且基于此，对dt, 2dt，3dt进行预测；现在的rotation不是确定的吗，所以desired_rotations[0]不应该是
+    // simulation_rotation吗？ 我的猜测是这样的，因为这里没有旋转速度的概念，旋转的快慢是由simulation_rotation_halflife决定的，如果我们将desired_rotations[0]
+    // 赋值为simulation_rotation，desired_rotations[1]赋值为desired_rotation，那么表示理想情况下dt会完成到desired_rotation的旋转，这里就影响了
+    // simulation_rotation_halflife的作用，因为旋转速度本身是由simulation_rotation_halflife来控制的，而且，如果旋转速度是个极大值，每次旋转都是瞬间完成的，显然
+    // 放到desired_rotations[1]是不合适的。将desired_rotation放到0索引后，simulation_rotation_halflife完全控制旋转速度，不管是个极大值还是极小值都可以很好的达到
+    // 预期旋转的效果;
     desired_rotations(0) = desired_rotation;
     
     for (int i = 1; i < desired_rotations.size; i++)
@@ -1269,6 +1278,7 @@ int main(void)
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
+    // 相机的方位角，只跟相机在大世界中的朝向有关，无角色朝向无关。弧度值，比如2π
     float camera_azimuth = 0.0f;
     float camera_altitude = 0.4f;
     float camera_distance = 4.0f;
