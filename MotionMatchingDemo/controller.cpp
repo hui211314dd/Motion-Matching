@@ -1607,6 +1607,16 @@ int main(void)
         {
             force_search_timer -= dt;
         }
+
+        // 下面调用了4个函数，2个为一组，负责的内容分别是预测目标朝向/位置，然后利用SpringDamper做平滑处理时求出预测的朝向/位置，一定要注意‘目标’和‘预测’的差别
+        // 目标：指的是如果按照当前的按键情况，不考虑旋转速度即立即旋转，得到的目标朝向/位置是多少
+        // 预测：需要考虑实际情况了即旋转速度，加速度等，本程序用half-life来调节，如果按照half-life来模拟，模拟得到的结果即预测结果
+
+        // 如何完成预测的呢？
+        // 我们通过trajectory_desired_rotations_predict得到了4个目标朝向trajectory_desired_rotations，其中trajectory_desired_rotations[0]为desired_rotation
+        // trajectory_desired_rotations_predict已经解释过了。trajectory_rotations_predict做的就是从当前的朝向simulation_rotation以及参数half-life分别模拟dt, 2dt, 3dt
+        // 的时间，Taget为trajectory_desired_rotations通过SpringDamper分别进行模拟;
+        // trajectory_positions_predict略有不同，通过上次模拟的结果作为下次模拟的条件，得到的结果更为精确！
         
         // Predict Future Trajectory
         // 预测trajectory future 每个时间段 desired_rotations情况
